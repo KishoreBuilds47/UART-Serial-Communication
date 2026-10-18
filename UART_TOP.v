@@ -1,7 +1,7 @@
 
 `timescale 1ns/1ps
 
-module UART_TOP(
+module UART_TOP (
     input wire clk,
     input wire rst,
     input wire [1:0] baudrate,
@@ -16,33 +16,25 @@ module UART_TOP(
     output wire rx_finish
 );
 
-    // Serial communication line between TX and RX
-    wire serial_line;
-
-    // UART Transmitter
     UART_TX transmitter (
         .clk(clk),
         .rst(rst),
-        .dataout(dataout),
         .baudrate(baudrate),
+        .dataout(dataout),
         .start(start),
-        .tx(serial_line),
+        .tx(tx_serial),
         .busy(tx_busy),
         .finish(tx_finish)
     );
 
-    // UART Receiver
     UART_RX receiver (
         .clk(clk),
         .rst(rst),
         .baudrate(baudrate),
-        .rx(serial_line),
+        .rx(tx_serial),
         .datain(datain),
         .busy(rx_busy),
         .finish(rx_finish)
     );
-
-    // Expose the serial line for waveform observation
-    assign tx_serial = serial_line;
 
 endmodule
