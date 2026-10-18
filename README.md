@@ -127,5 +127,6 @@ These are the expected results; actual successful operation must be confirmed by
 - Add error detection for framing errors and invalid data.
 
 ## Author
+S. Kishore Naik
 
 Developed as a digital design project to understand UART serial communication, finite state machines, and Verilog simulation.
