@@ -1,6 +1,9 @@
+
 `timescale 1ns/1ps
 
-module UART_RX(
+module UART_RX #(
+    parameter integer frequency = 50000000
+)(
     input wire clk,
     input wire rst,
     input wire [1:0] baudrate,
@@ -10,48 +13,43 @@ module UART_RX(
     output reg finish
 );
 
+    localparam IDLE  = 2'b00;
+    localparam START = 2'b01;
+    localparam DATA  = 2'b10;
+    localparam STOP  = 2'b11;
+
     reg [1:0] state;
     reg [2:0] bitno;
-    reg [7:0] byte8;
-    reg [15:0] count;
-    reg [15:0] baud_count;
-    reg [15:0] bit_timeperiod;
+    reg [7:0] shift_data;
+    reg [31:0] count;
+    reg [31:0] bit_period;
 
-    parameter IDLE  = 2'b00;
-    parameter START = 2'b01;
-    parameter DATA  = 2'b10;
-    parameter END   = 2'b11;
-
-    parameter frequency = 50000000;
-
-    // Select baud rate and calculate the number of clock cycles per bit
+    // Baud-rate timing
     always @(*) begin
         case (baudrate)
-            2'b00: baud_count = 16'd9600;
-            2'b01: baud_count = 16'd19200;
-            2'b10: baud_count = 16'd38400;
-            2'b11: baud_count = 16'd57600;
-            default: baud_count = 16'd9600;
+            2'b00: bit_period = frequency / 9600;
+            2'b01: bit_period = frequency / 19200;
+            2'b10: bit_period = frequency / 38400;
+            2'b11: bit_period = frequency / 57600;
+            default: bit_period = frequency / 9600;
         endcase
-
-        bit_timeperiod = frequency / baud_count;
     end
 
-    // UART receiver state machine
     always @(posedge clk or posedge rst) begin
         if (rst) begin
-            state  <= IDLE;
-            bitno  <= 0;
-            byte8  <= 0;
-            datain <= 0;
-            count  <= 0;
-            busy   <= 0;
-            finish <= 0;
+            state      <= IDLE;
+            bitno      <= 0;
+            shift_data <= 0;
+            count      <= 0;
+            datain     <= 0;
+            busy       <= 0;
+            finish     <= 0;
         end
         else begin
-            finish <= 0;
+            finish <= 1'b0;
 
             case (state)
+
                 IDLE: begin
                     count <= 0;
                     bitno <= 0;
@@ -60,23 +58,25 @@ module UART_RX(
                     if (rx == 1'b0) begin
                         state <= START;
                         count <= 0;
-                        busy  <= 1;
+                        busy  <= 1'b1;
                     end
                 end
 
                 START: begin
-                    if (count < (bit_timeperiod / 2) - 1) begin
-                        count <= count + 1;
+                    // Verify start bit near its center
+                    if (count < (bit_period / 2) - 1) begin
+                        count <= count + 1'b1;
                     end
                     else begin
                         count <= 0;
 
                         if (rx == 1'b0) begin
-                            state <= DATA;
-                            bitno <= 0;
+                            state      <= DATA;
+                            bitno      <= 0;
+                            shift_data <= 0;
                         end
                         else begin
-                            // False start bit
+                            // False start
                             state <= IDLE;
                             busy  <= 0;
                         end
@@ -84,26 +84,29 @@ module UART_RX(
                 end
 
                 DATA: begin
-                    if (count < bit_timeperiod - 1) begin
-                        count <= count + 1;
+                    // Sample data bits at their centers
+                    if (count < bit_period - 1) begin
+                        count <= count + 1'b1;
                     end
                     else begin
                         count <= 0;
-                        byte8 <= {byte8[6:0], rx};
+
+                        // UART data arrives LSB first
+                        shift_data <= {rx, shift_data[7:1]};
 
                         if (bitno == 3'd7) begin
                             bitno <= 0;
-                            state <= END;
+                            state <= STOP;
                         end
                         else begin
-                            bitno <= bitno + 1;
+                            bitno <= bitno + 1'b1;
                         end
                     end
                 end
 
-                END: begin
-                    if (count < bit_timeperiod - 1) begin
-                        count <= count + 1;
+                STOP: begin
+                    if (count < bit_period - 1) begin
+                        count <= count + 1'b1;
                     end
                     else begin
                         count <= 0;
@@ -111,19 +114,19 @@ module UART_RX(
                         busy  <= 0;
 
                         if (rx == 1'b1) begin
-                            datain <= byte8;
-                            finish <= 1;
+                            datain <= shift_data;
+                            finish <= 1'b1;
                         end
                     end
                 end
 
                 default: begin
-                    state  <= IDLE;
-                    bitno  <= 0;
-                    byte8  <= 0;
-                    count  <= 0;
-                    busy   <= 0;
-                    finish <= 0;
+                    state      <= IDLE;
+                    bitno      <= 0;
+                    shift_data <= 0;
+                    count      <= 0;
+                    busy       <= 0;
+                    finish     <= 0;
                 end
 
             endcase
