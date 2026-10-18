@@ -1,120 +1,131 @@
-# UART-Serial-Communication
-UART (Universal Asynchronous Receiver-Transmitter) is a serial communication protocol that transmits and receives data between devices using TX and RX lines. This project implements UART transmission using Verilog.
-
-# UART Transmitter Design Using Verilog HDL
-
-<p align="center">
-  <b>A clock-driven UART transmitter RTL design for reliable asynchronous serial communication.</b>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/HDL-Verilog-blue?style=for-the-badge&logo=logic" alt="Verilog"/>
-  <img src="https://img.shields.io/badge/Design-Digital%20Logic-purple?style=for-the-badge" alt="Digital Logic"/>
-  <img src="https://img.shields.io/badge/Domain-VLSI-orange?style=for-the-badge" alt="VLSI"/>
-  <img src="https://img.shields.io/badge/Platform-FPGA-green?style=for-the-badge" alt="FPGA"/>
-</p>
-
----
+# UART Communication Using Verilog and Vivado
 
 ## Overview
 
-This project implements a **UART (Universal Asynchronous Receiver-Transmitter) transmitter** using Verilog HDL. It converts parallel input data into a serial bit stream suitable for asynchronous communication between digital systems.
+This project implements a Universal Asynchronous Receiver-Transmitter (UART) communication system using Verilog HDL. It includes a transmitter (TX), receiver (RX), and a top-level module that connects both modules in a loopback configuration.
 
-The design focuses on sequential logic, clock-cycle control, data serialization, and transmission status management. It demonstrates how a communication protocol can be translated into synthesizable RTL using a structured hardware design approach.
+The design is simulated using AMD Xilinx Vivado to verify serial data transmission and reception at different baud rates.
 
-## Key Features
+## Features
 
-- **Serial Data Transmission** — Converts parallel data into a serial output stream.
-- **Finite State Machine (FSM)** — Organizes the transmission process into clearly defined states.
-- **Clock-Driven Operation** — Uses a clock and timing logic to control data transmission.
-- **Transmission Status** — Provides status signals to indicate transmission activity and completion, where implemented.
-- **RTL-Based Design** — Written in Verilog HDL with a focus on digital hardware design principles.
-- **FPGA-Oriented Development** — Suitable for RTL simulation and FPGA implementation, subject to verification and constraints.
+- UART transmitter and receiver implemented using Verilog HDL.
+- Finite State Machine (FSM)-based control logic.
+- 8-bit data transmission.
+- One start bit and one stop bit.
+- Least Significant Bit (LSB) transmitted first.
+- Configurable baud rate.
+- Internal TX-to-RX loopback for functional verification.
+- Testbench-based simulation with automatic data checking.
+
+## Baud Rates
+
+The baud rate is selected using a 2-bit control input.
+
+| `baudrate` | Baud rate |
+|---|---:|
+| `2'b00` | 9600 |
+| `2'b01` | 19200 |
+| `2'b10` | 38400 |
+| `2'b11` | 57600 |
+
+The default clock frequency is **50 MHz**.
 
 ## UART Frame Format
 
-A typical UART frame consists of a start bit, data bits, an optional parity bit, and stop bit(s). The exact configuration depends on the implementation.
+Each transmitted frame contains 10 bits.
 
 ```text
-       Idle       Start       Data Bits         Stop
-        1           0       D0 D1 ... D7          1
-    ─────────┐     ┌───────────────────────┐    ─────
-             └─────┘                       └─────────
+  Start       Data Bits (LSB first)           Stop
+    0       D0 D1 D2 D3 D4 D5 D6 D7             1
 ```
 
-UART transmits data **least-significant bit first (LSB first)** in a conventional frame. Confirm the bit order and frame configuration against your RTL implementation.
+- **Start bit:** Logic 0
+- **Data bits:** 8 bits
+- **Stop bit:** Logic 1
+- **Parity:** Not implemented
 
-## How It Works
-
-1. **Idle:** The transmitter waits for a transmission request.
-2. **Load Data:** The input byte is captured into an internal register.
-3. **Start Bit:** The serial output is driven low to indicate the beginning of a frame.
-4. **Data Transmission:** The stored data bits are transmitted sequentially according to the configured timing.
-5. **Stop Bit:** The output returns high to mark the end of the frame.
-6. **Completion:** The transmitter indicates that the frame has finished, if a completion signal is implemented.
-
-## Design Concepts Demonstrated
-
-- Verilog procedural blocks and nonblocking assignments
-- Finite state machine design
-- Counters and clock dividers
-- Parallel-to-serial conversion
-- UART framing and bit timing
-- Reset handling and control-signal sequencing
-- RTL simulation and waveform analysis
-
-## Repository Structure
+## Project Structure
 
 ```text
-Verilog-UART-Transmitter/
-├── UART_TX.v          # UART transmitter RTL
-├── testbench.v        # Simulation testbench (if included)
-├── constraints.xdc    # FPGA pin and timing constraints (if included)
-└── README.md          # Project documentation
+UART_COMMUNICATIONS/
+├── UART_TX.v       # UART transmitter
+├── UART_RX.v       # UART receiver
+├── UART_TOP.v      # Top-level loopback connection
+├── UART_TOP_tb.v   # Simulation testbench
+└── README.md       # Project documentation
 ```
 
-*Adjust the filenames above to match the actual files in your repository.*
+## Module Description
 
-## Tools and Technologies
+### 1. UART_TX
 
-| Technology | Purpose |
-|---|---|
-| Verilog HDL | RTL design |
-| AMD Vivado | Simulation, synthesis, and FPGA implementation, if used |
-| Waveform Viewer | Inspecting timing and signal behavior |
-| FPGA Board | Hardware validation, if available |
+The transmitter accepts an 8-bit parallel input and converts it into serial data. It generates the start bit, transmits the data bits in LSB-first order, and generates the stop bit.
 
-## Verification Checklist
+### 2. UART_RX
 
-Before considering the design complete, verify:
+The receiver monitors the serial input, detects the start bit, samples the incoming data, and reconstructs the original 8-bit parallel data. It asserts a completion signal after receiving a valid stop bit.
 
-- Reset initializes the transmitter correctly.
-- A transmission request loads the intended data.
-- The start bit and stop bit have the correct logic levels.
-- Data bits appear in the correct order.
-- Bit duration matches the configured baud rate.
-- Completion and busy signals behave correctly, if implemented.
-- Back-to-back transmissions work as intended.
+### 3. UART_TOP
+
+The top-level module connects the transmitter's serial output directly to the receiver's serial input. This loopback arrangement allows transmission and reception to be tested without an external UART device.
+
+### 4. UART_TOP_tb
+
+The testbench generates a 50 MHz clock, applies reset, sends test bytes, and compares the received data against the transmitted values.
+
+Test patterns:
+
+- `8'hA5`
+- `8'h3C`
+- `8'hFF`
+
+## Tools Used
+
+- **Hardware Description Language:** Verilog HDL
+- **Design and Simulation:** AMD Xilinx Vivado
+- **Simulator:** Vivado XSim
+- **Clock Frequency:** 50 MHz
+
+## How to Run
+
+1. Open AMD Xilinx Vivado.
+2. Create or open the UART project.
+3. Add `UART_TX.v`, `UART_RX.v`, and `UART_TOP.v` as design sources.
+4. Add `UART_TOP_tb.v` as a simulation source.
+5. Set `UART_TOP_tb` as the simulation top module.
+6. Run **Behavioral Simulation**.
+7. Advance the simulation long enough for all frames to complete.
+8. Inspect the transcript or waveform to verify the received data.
+
+## Expected Simulation Results
+
+If all test cases pass, the transcript should display:
+
+```text
+PASS: Sent=a5 Received=a5
+PASS: Sent=3c Received=3c
+PASS: Sent=ff Received=ff
+ALL TESTS PASSED
+```
+
+These are the expected results; actual successful operation must be confirmed by running the simulation.
+
+## Applications
+
+- Serial communication fundamentals
+- Digital system design
+- FPGA-based communication interfaces
+- Verilog FSM design practice
+- UART transmitter and receiver verification
 
 ## Future Improvements
 
-- Configurable baud-rate generation
-- Parameterized data width and stop-bit configuration
-- Optional parity-bit support
-- UART receiver implementation
-- Loopback testing and automated testbench checks
-- FPGA hardware demonstration
+- Add parity-bit support.
+- Implement configurable data and stop-bit lengths.
+- Test communication between separate UART modules.
+- Integrate the design with an FPGA development board.
+- Add error detection for framing errors and invalid data.
 
-## Learning Outcomes
+## Author
 
-This project strengthens practical understanding of **RTL design, finite state machines, synchronous digital logic, counters, serial communication, and FPGA design workflows**. It provides a foundation for developing larger digital systems and communication interfaces.
-
-## AUTHOR
-
-S. KISHORE NAIK 
-
-Interested in VLSI design, digital electronics, Verilog HDL, and FPGA-based system development.
-
----
-
-*Designed to explore the fundamentals of serial communication through practical RTL development.*
+Developed as a digital design project to understand UART serial communication, finite state machines, and Verilog simulation.
